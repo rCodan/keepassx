@@ -1,0 +1,5 @@
+Makefile
+src/Makefile
+bin/
+build/
+*~
