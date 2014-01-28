@@ -28,6 +28,11 @@
 #include "TargetWindowDlg.h"
 #endif
 
+static char pool_lower[] = "abcdefghijklmnopqrstuvwxyz";
+static char pool_upper[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+static char pool_numeral[] = "0123456789";
+static char pool_special[] = "!@#$%^&*()_+-=`~{}[];'\\:\"|,./<>? ";
+
 CEditEntryDlg::CEditEntryDlg(IDatabase* _db, IEntryHandle* _entry,QWidget* parent, bool newEntry)
 : QDialog(parent)
 {
@@ -101,11 +106,12 @@ CEditEntryDlg::CEditEntryDlg(IDatabase* _db, IEntryHandle* _entry,QWidget* paren
 
     // MX-COMMENT: This call is not needed. Both Passwords fields will always have the same value
     OnPasswordwLostFocus();
-	int bits=(Password.length()*8);
-	Label_Bits->setText(tr("%1 Bit").arg(QString::number(bits)));
-	if(bits>128)
-		bits=128;
-	Progress_Quali->setValue(100*bits/128);
+	char *pw = Edit_Password->text().toLocal8Bit().data();
+	float entropy = pw_entropy(pw_cardinality(pw), strlen(pw));
+	Label_Bits->setText(tr("%1 Bit").arg(QString::number(entropy,'f',1)));
+	if (entropy > 128)
+		entropy = 128;
+	Progress_Quali->setValue(100*entropy/128);
 	Edit_Attachment->setText(entry->binaryDesc());
 	Edit_Comment->setPlainText(entry->comment());
 	InitGroupComboBox();
@@ -155,6 +161,79 @@ void CEditEntryDlg::paintEvent(QPaintEvent *event){
 	QPainter painter(this);
 	painter.setClipRegion(event->region());
 	painter.drawPixmap(QPoint(0,0),BannerPixmap);
+}
+
+bool CEditEntryDlg::has_lowercase(char *pass)
+{
+	for (int i=0; pass[i]!='\0'; ++i) {
+		for (int j=0; pool_lower[j]!='\0'; ++j) {
+			if (pass[i] == pool_lower[j])
+				return true;
+		}
+	}
+
+	return false;
+}
+
+bool CEditEntryDlg::has_uppercase(char *pass)
+{
+	for (int i=0; pass[i]!='\0'; ++i) {
+		for (int j=0; pool_upper[j]!='\0'; ++j) {
+			if (pass[i] == pool_upper[j])
+				return true;
+		}
+	}
+
+	return false;
+}
+
+bool CEditEntryDlg::has_numeral(char *pass)
+{
+	for (int i=0; pass[i]!='\0'; ++i) {
+		for (int j=0; pool_numeral[j]!='\0'; ++j) {
+			if (pass[i] == pool_numeral[j])
+				return true;
+		}
+	}
+
+	return false;
+}
+
+bool CEditEntryDlg::has_special(char *pass)
+{
+	for (int i=0; pass[i]!='\0'; ++i) {
+		for (int j=0; pool_special[j]!='\0'; ++j) {
+			if (pass[i] == pool_special[j])
+				return true;
+		}
+	}
+
+	return false;
+}
+
+int CEditEntryDlg::pw_cardinality(char *pass)
+{
+	int card = 0;
+
+	if (has_lowercase(pass))
+		card += strlen(pool_lower);
+	if (has_uppercase(pass))
+		card += strlen(pool_upper);
+	if (has_numeral(pass))
+		card += strlen(pool_numeral);
+	if (has_special(pass))
+		card += strlen(pool_special);
+
+	return card;
+}
+
+float CEditEntryDlg::pw_entropy(int pw_card, int pw_len)
+{
+	/* Logarithm of zero is undefined. */
+	if (!pw_card || !pw_len)
+		return 0;
+
+	return pw_len * log(pw_card) / log(2);
 }
 
 void CEditEntryDlg::InitGroupComboBox(){
@@ -258,11 +337,16 @@ void CEditEntryDlg::OnTitleTextChanged(const QString& txt)
 
 void CEditEntryDlg::OnPasswordTextChanged()
 {
+	char *pw = Edit_Password->text().toLocal8Bit().data();
+	int pw_len = strlen(pw);
+	int cardinality = pw_cardinality(pw);
+	float entropy = pw_entropy(cardinality, pw_len);
+
 	Edit_Password_w->setText(QString());
-	int bits=(Edit_Password->text().length()*8);
-	Label_Bits->setText(QString::number(bits)+" Bit");
-	if(bits>128)bits=128;
-	Progress_Quali->setValue(100*bits/128);
+	Label_Bits->setText(QString::number(entropy,'f',1) + " Bit");
+	if (entropy > 128)
+		entropy = 128;
+	Progress_Quali->setValue(100*entropy/128);
 }
 
 void CEditEntryDlg::OnPasswordwTextChanged()

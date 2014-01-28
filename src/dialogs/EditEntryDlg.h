@@ -64,6 +64,13 @@ class CEditEntryDlg : public QDialog, private Ui_EditEntryDialog
 		virtual void paintEvent(QPaintEvent*);
 		virtual void resizeEvent(QResizeEvent *);
 		
+		int pw_cardinality(char *pass);
+		float pw_entropy(int pw_card, int pw_len);
+		bool has_lowercase(char *pass);
+		bool has_uppercase(char *pass);
+		bool has_numeral(char *pass);
+		bool has_special(char *pass);
+		
 		int IconIndex;
 		bool pNewEntry;
 };
